@@ -6,7 +6,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from app.core.config import settings
 from app.models.user import UserModel
-from app.models.role import SystemRoleModel
+from app.models.role import SystemRoleModel, ClubRoleModel
+from app.models.club import ClubModel
+from app.models.club_members import ClubMemberModel
 from app.db.database import get_db, SessionLocal
 from sqlalchemy.orm import Session
 
@@ -66,7 +68,7 @@ class RoleSystemChecker:
     def __init__(self, allowed_lists: list[str]):
         self.allowed_lists = allowed_lists
 
-    def __call__(self, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    def __call__(self, current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)) -> UserModel:
 
         role_id = current_user.role_id
 
@@ -74,6 +76,27 @@ class RoleSystemChecker:
             SystemRoleModel.id == role_id).first()
 
         if not current_role or current_role.name.lower() not in self.allowed_lists:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Bạn không có quyền hạn để truy cập chức năng này"
+            )
+
+        return current_user
+
+
+class ClubRoleChecker:
+
+    def __init__(self, allowed_lists: list[str]):
+        self.allowed_lists = allowed_lists
+
+    def __call__(self, current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)) -> UserModel:
+
+        role_id = current_user.role_id
+
+        current_role = db.query(ClubRoleModel).filter(
+            ClubRoleModel.id == role_id).first()
+
+        if not current_role or current_role.name.lower() in self.allowed_lists:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Bạn không có quyền hạn để truy cập chức năng này"

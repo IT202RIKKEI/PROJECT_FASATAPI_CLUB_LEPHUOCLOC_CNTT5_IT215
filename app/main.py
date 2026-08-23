@@ -9,6 +9,7 @@ from app.models.user import *
 from app.db.database import Base, Engine
 from app.routers.auth import auth_router
 from app.routers.users import user_router
+from app.routers.club import club_router
 from app.utils.utils import create_response
 from app.core.limiter import limiter
 from slowapi.errors import RateLimitExceeded
@@ -24,6 +25,7 @@ app.state.limiter = limiter
 
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(club_router)
 
 Base.metadata.create_all(Engine)
 # =============================== THIẾT LẬP GLOBAL EXCEPTIONS ===============================

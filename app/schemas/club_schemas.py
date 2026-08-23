@@ -13,7 +13,8 @@ class ClubBase(BaseModel):
 
 
 class ClubCreate(ClubBase):
-    pass
+    created_at: datetime
+    # owner_id: uuid.UUID
 
 
 class ClubUpdate(BaseModel):
@@ -24,6 +25,7 @@ class ClubUpdate(BaseModel):
 
 class ClubResponse(ClubBase):
     id: uuid.UUID
+    name: str
     owner_id: uuid.UUID
     created_at: datetime
 
