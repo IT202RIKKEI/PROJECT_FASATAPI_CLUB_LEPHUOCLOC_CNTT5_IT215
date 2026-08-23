@@ -17,10 +17,14 @@ class ClubCreate(ClubBase):
     # owner_id: uuid.UUID
 
 
-class ClubUpdate(BaseModel):
+class ClubPutUpdate(BaseModel):
+    name: str
+    description: str
+
+
+class ClubPatchUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    owner_id: uuid.UUID | None = None
 
 
 class ClubResponse(ClubBase):
