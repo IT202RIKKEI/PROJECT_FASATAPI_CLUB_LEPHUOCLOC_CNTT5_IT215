@@ -22,6 +22,13 @@ class ClubMemberModel(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
+    # soft delete
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     club_role = relationship("ClubRoleModel", back_populates="club_members")
 
     # MQH trỏ ngược về user và club

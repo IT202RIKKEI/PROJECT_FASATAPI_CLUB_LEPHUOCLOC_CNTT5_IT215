@@ -23,13 +23,16 @@ def register_account_sv(user_inp: UserCreate, db: Session):
         )
 
     # ỔN THÌ TẠO
-    user_dict = user_inp.model_dump(exclude={"password"})
+    # user_dict = user_inp.model_dump(exclude={"password"})
 
-    password_hash = get_password_hash(user_inp.password)
+    # password_hash = get_password_hash(user_inp.password)
 
-    user_dict["password_hash"] = password_hash
+    # user_dict["password_hash"] = password_hash
+    # user_dict["role_id"] = "2"
 
-    user_data = UserModel(**user_dict)
+    user_data = UserModel(**user_inp.model_dump(exclude={"password"}),
+                          password_hash=get_password_hash(user_inp.password),
+                          role_id=2)
 
     try:
 

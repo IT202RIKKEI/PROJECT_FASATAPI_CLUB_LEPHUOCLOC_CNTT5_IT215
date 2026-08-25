@@ -19,7 +19,6 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role_id: int = 1
 
     # validate dữ liệu
     @field_validator("full_name")

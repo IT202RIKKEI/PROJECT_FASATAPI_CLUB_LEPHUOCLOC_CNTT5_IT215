@@ -68,7 +68,7 @@ class RoleSystemChecker:
     def __init__(self, allowed_lists: list[str]):
         self.allowed_lists = allowed_lists
 
-    def __call__(self, current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)) -> UserModel:
+    def __call__(self, current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
 
         role_id = current_user.role_id
 
@@ -92,7 +92,7 @@ class ClubRoleChecker:
     def __call__(self,
                  req: Request,
                  current_user: UserModel = Depends(get_current_user),
-                 db: Session = Depends(get_db)) -> UserModel:
+                 db: Session = Depends(get_db)):
 
         # lấy club_id từ path parameter
         club_id_str = req.path_params.get("club_id")

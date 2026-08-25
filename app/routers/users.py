@@ -16,8 +16,8 @@ user_router = APIRouter(
 
 
 # =============================== LẤY RA THÔNG TIN NGƯỜI DÙNG ===============================
-@user_router.get("/me", status_code=status.HTTP_200_OK, dependencies=[Depends(ADMIN_AUTH)])
-def get_current_user(req: Request, user=Depends(get_current_user)):
+@user_router.get("/me", status_code=status.HTTP_200_OK)
+def get_my_profile(req: Request, user=Depends(get_current_user)):
 
     try:
         safety_user = UserResponse.model_validate(user).model_dump(mode="json")
@@ -36,7 +36,7 @@ def get_current_user(req: Request, user=Depends(get_current_user)):
 
 
 # =============================== LỌC RA DANH SÁCH NGƯỜI DÙNG CHO ADMIN ===============================
-@user_router.get("/users", status_code=status.HTTP_200_OK, dependencies=[Depends(ADMIN_AUTH)])
+@user_router.get("/", status_code=status.HTTP_200_OK, dependencies=[Depends(ADMIN_AUTH)])
 def get_users(req: Request,
               full_name: str | None = None,
               email: str | None = None,

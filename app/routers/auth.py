@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Form, Request, dependencies
+from fastapi import APIRouter, HTTPException, Depends, status, Form, Request, dependencies, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -22,7 +22,8 @@ USER_AUTH = RoleSystemChecker(["admin", "user"])
 
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)
-def register_account(request: Request, user_inp: UserCreate, db: Session = Depends(get_db)):
+def register_account(request: Request, user_inp: UserCreate,
+                     db: Session = Depends(get_db)):
     try:
 
         result = register_account_sv(user_inp, db)

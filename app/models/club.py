@@ -18,6 +18,13 @@ class ClubModel(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
+    # soft delete
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Khóa ngoại liên kết tới bảng role
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id"), nullable=False)
@@ -27,7 +34,8 @@ class ClubModel(Base):
 
     # Quan hệ 1-N tới bảng trung gian: Danh sách thành viên trong CLB
     members = relationship(
-        "ClubMemberModel", back_populates="club"
+        "ClubMemberModel", back_populates="club",
+        cascade="all, delete-orphan"
     )
 
     # mqh nguojc với activity 1 club có nhiều hoạt động
