@@ -15,7 +15,7 @@ class ClubModel(Base):
         String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
 
     # soft delete

@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status, Request
+from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 from app.schemas.club_schemas import *
 from app.models.club import ClubModel
@@ -473,7 +474,18 @@ def new_club_activity_sv(club_id: uuid.UUID, activity_data: ClubActivityCreate, 
 
 
 # =============================== LẤY RA DANH SÁCH HOẠT ĐỘNG CỦA CÂU LẠC BỘ (FULL_ACCESS) ===============================
-def get_club_activities_sv(club_id: uuid.UUID, db: Session):
+def get_club_activities_sv(
+    club_id: uuid.UUID,
+    db: Session,
+    title: str | None = None,
+    status_filter: ActivityStatus | None = None,
+    priority: ActivityPriority | None = None,
+    assignee_id: uuid.UUID | None = None,
+    page: int = 1,
+    size: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+):
 
     # kiểm tra xem clb có tồn tại không
     club = db.query(ClubModel).filter(ClubModel.id == club_id).first()
@@ -484,14 +496,53 @@ def get_club_activities_sv(club_id: uuid.UUID, db: Session):
             detail="Câu lạc bộ không tồn tại"
         )
 
-    club_activities = (
-        db.query(ClubActivityModel)
-        .filter(ClubActivityModel.club_id == club_id)
-        .order_by(ClubActivityModel.created_at.desc())
-        .all()
-    )
+    # query lọc theo club id:
+    query = db.query(ClubActivityModel).filter(
+        ClubActivityModel.club_id == club_id)
 
-    return club_activities
+    # lọc theo filter/ title
+
+    if title:
+        query = query.filter(ClubActivityModel.title.ilike(f"%{title}%"))
+
+    if status_filter:
+        query = query.filter(ClubActivityModel.status == status_filter)
+
+    if priority:
+        query = query.filter(ClubActivityModel.priority == priority)
+
+    if assignee_id:
+        query = query.filter(ClubActivityModel.priority == assignee_id)
+
+    # đếm ra tổng số bảng ghi lấy ra được
+
+    total_items = query.count()
+
+    # sắp xếp
+    sort_col = (ClubActivityModel.created_at
+                if sort_by == "created_at"
+                else ClubActivityModel.due_date)
+
+    order_function = asc if sort_order == "asc" else desc
+
+    query = query.order_by(order_function(sort_col))
+
+    # phân trang/pagination
+
+    offset = (page - 1) * size  # số lượng bản ghi cần bỏ qua
+    items = query.offset(offset).limit(size).all()
+
+    total_pages = (total_items + size - 1) // size if total_items > 0 else 1
+
+    return {
+        "items": items,
+        "pagination": {
+            "page": page,
+            "size": size,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        },
+    }
 
 
 # =============================== END REGION ===============================
@@ -569,11 +620,11 @@ def update_club_activity_sv(activity_id: uuid.UUID, update_data: ClubActivityUpd
             ).first()
         )
 
-    if not target_assignee:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Người được phân công không thuộc câu lạc bộ này!",
-        )
+        if not target_assignee:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Người được phân công không thuộc câu lạc bộ này!",
+            )
 
     # Nếu có cập nhật title, kiểm tra trùng tên trong cùng CLB
     if "title" in update_dict:

@@ -1,4 +1,13 @@
-from fastapi import APIRouter, status, Depends, Request, HTTPException, dependencies, Form
+from fastapi import (
+    APIRouter,
+    status,
+    Depends,
+    Request,
+    HTTPException,
+    dependencies,
+    Form,
+    Query,
+)
 from app.dependencies.dependencies import get_current_user
 from app.models.club import ClubModel
 from app.schemas.club_schemas import *
@@ -12,6 +21,7 @@ from app.services.club import *
 from app.schemas.activity_log_schemas import ActivityLogResponse
 from app.services.activity_log import get_club_activity_logs_sv
 from app.schemas.club_activity_schemas import *
+from typing import Literal
 
 
 # tính năng bắt buộc đăng nhập tài khoản
@@ -20,89 +30,117 @@ OWNER_ONLY = ClubRoleChecker(["owner"])
 FULL_ACCESS = ClubRoleChecker(["owner", "member"])
 
 
-club_router = APIRouter(
-    prefix="/clubs",
-    tags=["QUẢN LÝ CÂU LẠC BỘ"]
-)
+club_router = APIRouter(prefix="/clubs", tags=["QUẢN LÝ CÂU LẠC BỘ"])
+
+
 
 
 # =============================== TẠO CÂU LẠC BỘ MỚI ===============================
-
-
-@club_router.post("/", status_code=status.HTTP_201_CREATED,
-                  dependencies=[Depends(isLoginRequired)])
-def new_club(req: Request,
-             club_inp: ClubCreate = Form(...),
-             db: Session = Depends(get_db),
-             current_user: UserModel = Depends(get_current_user)):
+@club_router.post(
+    "/", status_code=status.HTTP_201_CREATED, dependencies=[Depends(isLoginRequired)]
+)
+def new_club(
+    req: Request,
+    club_inp: ClubCreate = Form(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
 
     try:
-
         club_data = new_clubs_sv(club_inp, db, current_user)
 
-        safety_club_data = ClubResponse.model_validate(
-            club_data).model_dump(mode='json')
+        safety_club_data = ClubResponse.model_validate(club_data).model_dump(
+            mode="json"
+        )
 
-        return create_response(status.HTTP_201_CREATED, "Tạo câu lạc bộ mới thành công", req, data=safety_club_data)
+        return create_response(
+            status.HTTP_201_CREATED,
+            "Tạo câu lạc bộ mới thành công",
+            req,
+            data=safety_club_data,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== Xem danh sách câu lạc bộ ===============================
-@club_router.get("/", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)])
-def get_clubs(req: Request,
-              club_name: str | None = None,
-              current_user: UserModel = Depends(get_current_user),
-              db: Session = Depends(get_db)):
+@club_router.get(
+    "/", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)]
+)
+def get_clubs(
+    req: Request,
+    club_name: str | None = None,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
         list_clubs = get_clubs_sv(club_name, current_user, db)
 
-        list_safety_clubs = [ClubResponse.model_validate(
-            club).model_dump(mode="json") for club in list_clubs]
+        list_safety_clubs = [
+            ClubResponse.model_validate(club).model_dump(mode="json")
+            for club in list_clubs
+        ]
 
-        return create_response(status.HTTP_200_OK, "Lấy dữ liệu câu lạc bộ thành công", req, data=list_safety_clubs)
+        return create_response(
+            status.HTTP_200_OK,
+            "Lấy dữ liệu câu lạc bộ thành công",
+            req,
+            data=list_safety_clubs,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== Xem chi tiết câu lạc bộ, chỉ thành viên mới xem được ===============================
-@club_router.get("/{id}", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)])
-def get_club_detail(req: Request,
-                    id: uuid.UUID,
-                    current_user: UserModel = Depends(get_current_user),
-                    db: Session = Depends(get_db)):
+@club_router.get(
+    "/{id}", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)]
+)
+def get_club_detail(
+    req: Request,
+    id: uuid.UUID,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
-
         club_data = get_club_detail_sv(id, current_user, db)
 
-        safety_club_data = ClubResponse.model_validate(
-            club_data).model_dump(mode="json")
+        safety_club_data = ClubResponse.model_validate(club_data).model_dump(
+            mode="json"
+        )
 
-        return create_response(status.HTTP_200_OK, "Lấy dữ liệu câu lạc bộ thành công", req, data=safety_club_data)
+        return create_response(
+            status.HTTP_200_OK,
+            "Lấy dữ liệu câu lạc bộ thành công",
+            req,
+            data=safety_club_data,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
@@ -110,81 +148,116 @@ def get_club_detail(req: Request,
 # =============================== CHỨC NĂNG CỦA ADMIN ===============================
 # ======================================================================
 
+
 # =============================== CẬP NHẬT CÂU LẠC BỘ TẤT CẢ THUỘC TÍNH (OWNER_ONLY) ===============================
-@club_router.put("/{club_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
-def put_update_club(req: Request,
-                    club_id: uuid.UUID,
-                    update_data: ClubPutUpdate = Form(...),
-                    current_user: UserModel = Depends(get_current_user),
-                    db: Session = Depends(get_db)):
+@club_router.put(
+    "/{club_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
+def put_update_club(
+    req: Request,
+    club_id: uuid.UUID,
+    update_data: ClubPutUpdate = Form(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
-
         new_club_data = put_update_club_sv(
             update_data, club_id, current_user, db)
 
-        safety_club_data = ClubResponse.model_validate(
-            new_club_data).model_dump(mode="json")
+        safety_club_data = ClubResponse.model_validate(new_club_data).model_dump(
+            mode="json"
+        )
 
-        return create_response(status.HTTP_201_CREATED, "Cập nhật câu lạc bộ thành công", req, data=safety_club_data)
+        return create_response(
+            status.HTTP_201_CREATED,
+            "Cập nhật câu lạc bộ thành công",
+            req,
+            data=safety_club_data,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== CẬP NHẬT CÂU LẠC BỘ TÙY CHỌN THUỘC TÍNH (OWNER_ONLY) ===============================
-@club_router.patch("/{club_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
-def patch_update_club(req: Request,
-                      club_id: uuid.UUID,
-                      update_data: ClubPatchUpdate = Form(...),
-                      current_user: UserModel = Depends(get_current_user),
-                      db: Session = Depends(get_db)):
+@club_router.patch(
+    "/{club_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
+def patch_update_club(
+    req: Request,
+    club_id: uuid.UUID,
+    update_data: ClubPatchUpdate = Form(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
-
         new_club_data = patch_update_club_sv(
             update_data, club_id, current_user, db)
 
-        safety_club_data = ClubResponse.model_validate(
-            new_club_data).model_dump(mode="json")
+        safety_club_data = ClubResponse.model_validate(new_club_data).model_dump(
+            mode="json"
+        )
 
-        return create_response(status.HTTP_201_CREATED, "Cập nhật câu lạc bộ thành công", req, data=safety_club_data)
+        return create_response(
+            status.HTTP_201_CREATED,
+            "Cập nhật câu lạc bộ thành công",
+            req,
+            data=safety_club_data,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== XÓA CÂU LẠC BỘ (OWNER ONLY) ===============================
-@club_router.delete("/{club_id}",
-                    status_code=status.HTTP_200_OK,
-                    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
-def delete_club(req: Request, club_id: uuid.UUID, current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
+@club_router.delete(
+    "/{club_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
+def delete_club(
+    req: Request,
+    club_id: uuid.UUID,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
         result = delete_club_sv(club_id, current_user, db)
 
         if result:
-            return create_response(status.HTTP_201_CREATED, "Xóa câu lạc bộ thành công", req)
+            return create_response(
+                status.HTTP_201_CREATED, "Xóa câu lạc bộ thành công", req
+            )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 # ============================================================================================================================================
@@ -195,83 +268,108 @@ def delete_club(req: Request, club_id: uuid.UUID, current_user: UserModel = Depe
 
 
 # =============================== THÊM THÀNH VIÊN VÀO CLB (OWNER_ONLY) ===============================
-@club_router.post("/{club_id}/members",
-                  status_code=status.HTTP_201_CREATED,
-                  dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
-def new_member(req: Request,
-               club_id: uuid.UUID,
-               member_data: ClubMemberCreate = Form(...),
-               current_user: UserModel = Depends(get_current_user),
-               db: Session = Depends(get_db)):
+@club_router.post(
+    "/{club_id}/members",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
+def new_member(
+    req: Request,
+    club_id: uuid.UUID,
+    member_data: ClubMemberCreate = Form(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
+        return_data = new_member_sv(
+            club_id=club_id, member_data=member_data, current_user=current_user, db=db
+        )
 
-        return_data = new_member_sv(club_id=club_id,
-                                    member_data=member_data,
-                                    current_user=current_user,
-                                    db=db)
+        safety_member_data = ClubMemberResponse.model_validate(return_data).model_dump(
+            mode="json"
+        )
 
-        safety_member_data = ClubMemberResponse.model_validate(
-            return_data).model_dump(mode="json")
-
-        return create_response(status.HTTP_201_CREATED, "Thêm thành viên mới thành công", req, data=safety_member_data)
+        return create_response(
+            status.HTTP_201_CREATED,
+            "Thêm thành viên mới thành công",
+            req,
+            data=safety_member_data,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== XÓA THÀNH VIÊN (CLUB_MEMBER, OWNER) ===============================
-@club_router.delete("/{club_id}/members/{user_id}", status_code=status.HTTP_200_OK,
-                    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
-def delete_member(req: Request,
-                  club_id: uuid.UUID,
-                  user_id: uuid.UUID,
-                  current_user: UserModel = Depends(get_current_user),
-                  db: Session = Depends(get_db)):
+@club_router.delete(
+    "/{club_id}/members/{user_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
+def delete_member(
+    req: Request,
+    club_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
 
     try:
-
         delete_result = delete_member_sv(club_id, user_id, current_user, db)
 
-        return create_response(status.HTTP_201_CREATED, "Xóa thành viên câu lạc bộ thành công", req)
+        return create_response(
+            status.HTTP_201_CREATED, "Xóa thành viên câu lạc bộ thành công", req
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
 
 # =============================== END REGION ===============================
 
 
 # =============================== lấy ra danh sách thành viên (CLUB_MEMBER, OWNER) ===============================
-@club_router.get("/{club_id}/members", status_code=status.HTTP_200_OK,
-                 dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)])
+@club_router.get(
+    "/{club_id}/members",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
+)
 def get_club_members(req: Request, club_id: uuid.UUID, db: Session = Depends(get_db)):
 
     try:
         list_members = get_club_members_sv(club_id, db)
 
         safety_list_members = [
-            ClubMemberResponse.model_validate(u).model_dump(mode="json") for u in list_members]
+            ClubMemberResponse.model_validate(u).model_dump(mode="json")
+            for u in list_members
+        ]
 
-        return create_response(status.HTTP_201_CREATED, "Lấy danh sách thành viên thành công", req, data=safety_list_members)
+        return create_response(
+            status.HTTP_201_CREATED,
+            "Lấy danh sách thành viên thành công",
+            req,
+            data=safety_list_members,
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Có lỗi: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Có lỗi: {e}"
         )
+
 
 # =============================== END REGION ===============================
 
@@ -308,6 +406,8 @@ def get_club_activity_logs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Có lỗi: {e}",
         )
+
+
 # ==============================  END REGION  ========================================
 
 # ============================================================================================================================================
@@ -319,22 +419,25 @@ def get_club_activity_logs(
 
 
 # =============================== THÊM HOẠT ĐỘNG MỚI CHO CLB (FULL_ACCESS) ===============================
-@club_router.post("/{club_id}/activities", status_code=status.HTTP_201_CREATED,
-                  dependencies=[Depends(isLoginRequired),
-                                Depends(FULL_ACCESS)])
-def new_club_activity(req: Request,
-                      club_id: uuid.UUID,
-                      activity_data: ClubActivityCreate = Form(...),
-                      current_user: UserModel = Depends(get_current_user),
-                      db: Session = Depends(get_db)):
+@club_router.post(
+    "/{club_id}/activities",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(isLoginRequired), Depends(FULL_ACCESS)],
+)
+def new_club_activity(
+    req: Request,
+    club_id: uuid.UUID,
+    activity_data: ClubActivityCreate = Form(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     try:
-
-        club_activity_data = new_club_activity_sv(club_id,
-                                                  activity_data,
-                                                  current_user,
-                                                  db)
+        club_activity_data = new_club_activity_sv(
+            club_id, activity_data, current_user, db
+        )
         safety_activity_data = ClubActivityResponse.model_validate(
-            club_activity_data).model_dump(mode="json")
+            club_activity_data
+        ).model_dump(mode="json")
 
         return create_response(
             status_code=status.HTTP_201_CREATED,
@@ -350,26 +453,71 @@ def new_club_activity(req: Request,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Có lỗi: {e}",
         )
+
+
 # =============================== END REGION ===============================
 
 
 # =============================== LẤY RA DANH SÁCH HOẠT ĐỘNG CỦA CÂU LẠC BỘ (FULL_ACCESS) ===============================
-@club_router.get("/{club_id}/activities", status_code=status.HTTP_200_OK,
-                 dependencies=[Depends(isLoginRequired),
-                               Depends(FULL_ACCESS)])
-def get_club_activities(req: Request, club_id: uuid.UUID, db: Session = Depends(get_db)):
+@club_router.get(
+    "/{club_id}/activities",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired), Depends(FULL_ACCESS)],
+)
+def get_club_activities(
+    req: Request,
+    club_id: uuid.UUID,
+
+    # Tìm kiếm và Lọc
+    title: str | None = Query(
+        None, description="Tìm kiếm theo tiêu đề hoạt động"),
+    status_activity: ActivityStatus | None = Query(
+        None, description="Lọc theo trạng thái"),
+    priority: ActivityPriority | None = Query(
+        None, description="Lọc theo độ ưu tiên"),
+    assignee_id: uuid.UUID | None = Query(
+        None, description="Lọc theo người thực hiện"),
+    # Phân trang
+    page: int = Query(1, ge=1, description="Số trang (bắt đầu từ 1)"),
+    size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
+
+    # sắp xếp theo created_at / due_date
+    sort_by: Literal["created_at", "due_date"] = Query(
+        "created_at", description="Trường sắp xếp"),
+    sort_order: Literal["asc", "desc"] = Query(
+        "asc", description="Kiểu sắp xếp"),
+    db: Session = Depends(get_db),
+):
 
     try:
-        club_activities_data = get_club_activities_sv(club_id, db)
+        result = get_club_activities_sv(
+            club_id=club_id,
+            db=db,
+            title=title,
+            status_filter=status_activity,
+            priority=priority,
+            assignee_id=assignee_id,
+            page=page,
+            size=size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
 
-        safety_activites_data = [ClubActivityResponse.model_validate(
-            club_activity).model_dump(mode="json") for club_activity in club_activities_data]
+        safety_items = [
+            ClubActivityResponse.model_validate(act).model_dump(mode="json")
+            for act in result["items"]
+        ]
+
+        response_data = {
+            "items": safety_items,
+            "pagination": result["pagination"],
+        }
 
         return create_response(
-            status_code=status.HTTP_201_CREATED,
+            status_code=status.HTTP_200_OK,  # 👈 Sửa 201 thành 200 OK
             message="Xem danh sách hoạt động câu lạc bộ thành công",
             request=req,
-            data=safety_activites_data,
+            data=response_data,
         )
 
     except HTTPException:
@@ -379,6 +527,8 @@ def get_club_activities(req: Request, club_id: uuid.UUID, db: Session = Depends(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Có lỗi: {e}",
         )
+
+
 # =============================== END REGION ===============================
 
 
@@ -396,12 +546,11 @@ def get_activity_detail(
 ):
     try:
         activity_data = get_activity_detail_sv(
-            id=id, current_user=current_user, db=db
-        )
+            id=id, current_user=current_user, db=db)
 
-        safety_activity = ClubActivityResponse.model_validate(
-            activity_data
-        ).model_dump(mode="json")
+        safety_activity = ClubActivityResponse.model_validate(activity_data).model_dump(
+            mode="json"
+        )
 
         return create_response(
             status_code=status.HTTP_200_OK,
@@ -422,14 +571,18 @@ def get_activity_detail(
 
 
 # =============================== CẬP NHẬT HOẠT ĐỘNG CÂU LẠC BỘ (FULL_ACCESS) ===============================
-@club_router.patch("/activities/{id}",
-                   status_code=status.HTTP_200_OK,
-                   dependencies=[Depends(isLoginRequired)])
-def update_club_activity(req: Request,
-                         id: uuid.UUID,
-                         update_data: ClubActivityUpdate = Form(...),
-                         current_user: UserModel = Depends(get_current_user),
-                         db: Session = Depends(get_db)):
+@club_router.patch(
+    "/activities/{id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(isLoginRequired)],
+)
+def update_club_activity(
+    req: Request,
+    id: uuid.UUID,
+    update_data: ClubActivityUpdate = Form(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     try:
         activity_data = update_club_activity_sv(
             activity_id=id,
@@ -438,9 +591,9 @@ def update_club_activity(req: Request,
             db=db,
         )
 
-        safety_activity = ClubActivityResponse.model_validate(
-            activity_data
-        ).model_dump(mode="json")
+        safety_activity = ClubActivityResponse.model_validate(activity_data).model_dump(
+            mode="json"
+        )
 
         return create_response(
             status_code=status.HTTP_200_OK,
@@ -488,4 +641,6 @@ def delete_club_activity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Có lỗi xảy ra: {e}",
         )
+
+
 # =============================== END REGION ===============================
