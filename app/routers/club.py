@@ -7,6 +7,8 @@ from fastapi import (
     dependencies,
     Form,
     Query,
+    File,
+    UploadFile
 )
 from app.dependencies.dependencies import get_current_user
 from app.models.club import ClubModel
@@ -19,6 +21,7 @@ from app.db.database import get_db
 from app.dependencies.dependencies import ClubRoleChecker, RoleSystemChecker
 from app.services.club import *
 from app.schemas.activity_log_schemas import ActivityLogResponse
+from app.schemas.response_schemas import BaseResponse
 from app.services.activity_log import get_club_activity_logs_sv
 from app.schemas.club_activity_schemas import *
 from typing import Literal
@@ -33,11 +36,14 @@ FULL_ACCESS = ClubRoleChecker(["owner", "member"])
 club_router = APIRouter(prefix="/clubs", tags=["QUẢN LÝ CÂU LẠC BỘ"])
 
 
-
-
 # =============================== TẠO CÂU LẠC BỘ MỚI ===============================
 @club_router.post(
-    "/", status_code=status.HTTP_201_CREATED, dependencies=[Depends(isLoginRequired)]
+    "/",
+    response_model=BaseResponse[ClubResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Tạo câu lạc bộ mới",
+    description="Người dùng đăng nhập tạo câu lạc bộ mới và tự động trở thành Chủ nhiệm (Owner).",
+    dependencies=[Depends(isLoginRequired)],
 )
 def new_club(
     req: Request,
@@ -73,7 +79,12 @@ def new_club(
 
 # =============================== Xem danh sách câu lạc bộ ===============================
 @club_router.get(
-    "/", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)]
+    "/",
+    response_model=BaseResponse[list[ClubResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách câu lạc bộ",
+    description="Xem toàn bộ danh sách các câu lạc bộ trong hệ thống, hỗ trợ tìm kiếm theo tên.",
+    dependencies=[Depends(isLoginRequired)],
 )
 def get_clubs(
     req: Request,
@@ -110,7 +121,12 @@ def get_clubs(
 
 # =============================== Xem chi tiết câu lạc bộ, chỉ thành viên mới xem được ===============================
 @club_router.get(
-    "/{id}", status_code=status.HTTP_200_OK, dependencies=[Depends(isLoginRequired)]
+    "/{id}",
+    response_model=BaseResponse[ClubResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Xem chi tiết câu lạc bộ",
+    description="Chỉ thành viên thuộc câu lạc bộ mới có quyền xem thông tin chi tiết.",
+    dependencies=[Depends(isLoginRequired)],
 )
 def get_club_detail(
     req: Request,
@@ -152,7 +168,10 @@ def get_club_detail(
 # =============================== CẬP NHẬT CÂU LẠC BỘ TẤT CẢ THUỘC TÍNH (OWNER_ONLY) ===============================
 @club_router.put(
     "/{club_id}",
+    response_model=BaseResponse[ClubResponse],
     status_code=status.HTTP_200_OK,
+    summary="Cập nhật toàn bộ thông tin CLB (PUT)",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền cập nhật toàn bộ thuộc tính của CLB.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def put_update_club(
@@ -192,7 +211,10 @@ def put_update_club(
 # =============================== CẬP NHẬT CÂU LẠC BỘ TÙY CHỌN THUỘC TÍNH (OWNER_ONLY) ===============================
 @club_router.patch(
     "/{club_id}",
+    response_model=BaseResponse[ClubResponse],
     status_code=status.HTTP_200_OK,
+    summary="Cập nhật từng phần thông tin CLB (PATCH)",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền cập nhật tùy chọn các thuộc tính của CLB.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def patch_update_club(
@@ -232,7 +254,10 @@ def patch_update_club(
 # =============================== XÓA CÂU LẠC BỘ (OWNER ONLY) ===============================
 @club_router.delete(
     "/{club_id}",
+    response_model=BaseResponse[None],
     status_code=status.HTTP_200_OK,
+    summary="Xóa câu lạc bộ (Soft Delete)",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền thực hiện thao tác xóa câu lạc bộ.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def delete_club(
@@ -247,7 +272,7 @@ def delete_club(
 
         if result:
             return create_response(
-                status.HTTP_201_CREATED, "Xóa câu lạc bộ thành công", req
+                status.HTTP_200_OK, "Xóa câu lạc bộ thành công", req
             )
 
     except HTTPException:
@@ -270,7 +295,10 @@ def delete_club(
 # =============================== THÊM THÀNH VIÊN VÀO CLB (OWNER_ONLY) ===============================
 @club_router.post(
     "/{club_id}/members",
+    response_model=BaseResponse[ClubMemberResponse],
     status_code=status.HTTP_201_CREATED,
+    summary="Thêm thành viên vào CLB",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền mời hoặc thêm thành viên mới vào CLB.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def new_member(
@@ -311,7 +339,10 @@ def new_member(
 # =============================== XÓA THÀNH VIÊN (CLUB_MEMBER, OWNER) ===============================
 @club_router.delete(
     "/{club_id}/members/{user_id}",
+    response_model=BaseResponse[None],
     status_code=status.HTTP_200_OK,
+    summary="Xóa thành viên khỏi CLB",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền xóa hoặc loại thành viên khỏi CLB.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def delete_member(
@@ -326,7 +357,7 @@ def delete_member(
         delete_result = delete_member_sv(club_id, user_id, current_user, db)
 
         return create_response(
-            status.HTTP_201_CREATED, "Xóa thành viên câu lạc bộ thành công", req
+            status.HTTP_200_OK, "Xóa thành viên câu lạc bộ thành công", req
         )
 
     except HTTPException:
@@ -343,7 +374,10 @@ def delete_member(
 # =============================== lấy ra danh sách thành viên (CLUB_MEMBER, OWNER) ===============================
 @club_router.get(
     "/{club_id}/members",
+    response_model=BaseResponse[list[ClubMemberResponse]],
     status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách thành viên CLB",
+    description="Xem danh sách tất cả các thành viên đang sinh hoạt trong câu lạc bộ.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def get_club_members(req: Request, club_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -357,7 +391,7 @@ def get_club_members(req: Request, club_id: uuid.UUID, db: Session = Depends(get
         ]
 
         return create_response(
-            status.HTTP_201_CREATED,
+            status.HTTP_200_OK,
             "Lấy danh sách thành viên thành công",
             req,
             data=safety_list_members,
@@ -377,7 +411,10 @@ def get_club_members(req: Request, club_id: uuid.UUID, db: Session = Depends(get
 # =============================== XEM LỊCH SỬ THAO TÁC CỦA CLB (OWNER ONLY) ===============================
 @club_router.get(
     "/{club_id}/activity-logs",
+    response_model=BaseResponse[list[ActivityLogResponse]],
     status_code=status.HTTP_200_OK,
+    summary="Xem lịch sử thao tác của CLB",
+    description="Chỉ Chủ nhiệm (Owner) mới có quyền kiểm tra nhật ký hoạt động/thay đổi của CLB.",
     dependencies=[Depends(isLoginRequired), Depends(OWNER_ONLY)],
 )
 def get_club_activity_logs(
@@ -421,7 +458,10 @@ def get_club_activity_logs(
 # =============================== THÊM HOẠT ĐỘNG MỚI CHO CLB (FULL_ACCESS) ===============================
 @club_router.post(
     "/{club_id}/activities",
+    response_model=BaseResponse[ClubActivityResponse],
     status_code=status.HTTP_201_CREATED,
+    summary="Tạo hoạt động mới cho CLB",
+    description="Thành viên CLB có quyền tạo task/hoạt động mới. Tiêu đề không được trùng lặp trong CLB.",
     dependencies=[Depends(isLoginRequired), Depends(FULL_ACCESS)],
 )
 def new_club_activity(
@@ -461,7 +501,10 @@ def new_club_activity(
 # =============================== LẤY RA DANH SÁCH HOẠT ĐỘNG CỦA CÂU LẠC BỘ (FULL_ACCESS) ===============================
 @club_router.get(
     "/{club_id}/activities",
+    response_model=BaseResponse[dict],
     status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách hoạt động của CLB",
+    description="Hỗ trợ tìm kiếm theo tiêu đề, lọc theo trạng thái/độ ưu tiên/assignee, sắp xếp và phân trang.",
     dependencies=[Depends(isLoginRequired), Depends(FULL_ACCESS)],
 )
 def get_club_activities(
@@ -535,7 +578,10 @@ def get_club_activities(
 # =============================== CHI TIẾT HOẠT ĐỘNG CÂU LẠC BỘ ===============================
 @club_router.get(
     "/activities/{id}",
+    response_model=BaseResponse[ClubActivityResponse],
     status_code=status.HTTP_200_OK,
+    summary="Xem chi tiết hoạt động CLB",
+    description="Chỉ thành viên trong câu lạc bộ chứa hoạt động đó mới có quyền xem chi tiết.",
     dependencies=[Depends(isLoginRequired)],
 )
 def get_activity_detail(
@@ -573,7 +619,10 @@ def get_activity_detail(
 # =============================== CẬP NHẬT HOẠT ĐỘNG CÂU LẠC BỘ (FULL_ACCESS) ===============================
 @club_router.patch(
     "/activities/{id}",
+    response_model=BaseResponse[ClubActivityResponse],
     status_code=status.HTTP_200_OK,
+    summary="Cập nhật hoạt động CLB",
+    description="Chủ nhiệm (Owner) sửa được tất cả. Người được giao việc (Assignee) chỉ được cập nhật trạng thái (status).",
     dependencies=[Depends(isLoginRequired)],
 )
 def update_club_activity(
@@ -616,7 +665,10 @@ def update_club_activity(
 # =============================== XÓA HOẠT ĐỘNG CÂU LẠC BỘ ===============================
 @club_router.delete(
     "/activities/{id}",
+    response_model=BaseResponse[None],
     status_code=status.HTTP_200_OK,
+    summary="Xóa hoạt động CLB",
+    description="Chỉ Chủ nhiệm (Owner có role_id = 1) mới có quyền xóa hoạt động.",
     dependencies=[Depends(isLoginRequired)],
 )
 def delete_club_activity(
@@ -643,4 +695,78 @@ def delete_club_activity(
         )
 
 
+# =============================== END REGION ===============================
+
+
+# =============================== NÂNG CAO THÊM CMT CHO HOẠT ĐỘNG CLB ===============================
+@club_router.post(
+    "/activities/{id}/comments",
+    response_model=BaseResponse[dict],
+    status_code=status.HTTP_201_CREATED,
+    summary="Thêm trao đổi/bình luận cho hoạt động",
+    description="Thành viên CLB có thể thêm trao đổi nội bộ dưới dạng danh sách bình luận.",
+    dependencies=[Depends(isLoginRequired)],
+)
+def add_comment(
+    req: Request,
+    id: uuid.UUID,
+    content: str = Form(..., description="Nội dung comment"),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = add_comment_sv(
+            activity_id=id, content=content, current_user=current_user, db=db
+        )
+        return create_response(
+            status_code=status.HTTP_201_CREATED,
+            message="Thêm bình luận thành công",
+            request=req,
+            data=data,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi: {e}")
+# =============================== END REGION ===============================
+
+
+# =============================== TẢI LÊN FILE ĐÍNH KÈM / MINH CHỨNG ===============================
+@club_router.post(
+    "/activities/{id}/attachments",
+    response_model=BaseResponse[dict],
+    status_code=status.HTTP_201_CREATED,
+    summary="Tải lên file đính kèm/minh chứng cho hoạt động",
+    description="Upload file minh chứng, hình ảnh hoạt động phong trào (tối đa 5MB, định dạng ảnh/PDF/Word).",
+    dependencies=[Depends(isLoginRequired)],
+)
+def upload_activity_attachment(
+    req: Request,
+    id: uuid.UUID,
+    file: UploadFile = File(..., description="File minh chứng hoặc hình ảnh"),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        attachment_data = upload_attachment_sv(
+            activity_id=id,
+            file=file,
+            current_user=current_user,
+            db=db,
+        )
+
+        return create_response(
+            status_code=status.HTTP_201_CREATED,
+            message="Tải lên minh chứng thành công",
+            request=req,
+            data=attachment_data,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Có lỗi xảy ra: {e}",
+        )
 # =============================== END REGION ===============================

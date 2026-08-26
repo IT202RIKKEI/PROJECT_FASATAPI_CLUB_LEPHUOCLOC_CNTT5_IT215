@@ -19,7 +19,7 @@ class ClubMemberModel(Base):
         Integer, ForeignKey("club_roles.id"), nullable=False)
 
     joined_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
 
     # soft delete

@@ -1,4 +1,6 @@
-from fastapi import HTTPException, status, Request
+import os  # thư viện chuẩn python để giao tiếp với hệ điều hành
+import shutil
+from fastapi import HTTPException, status, Request, UploadFile
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 from app.schemas.club_schemas import *
@@ -14,6 +16,13 @@ from app.schemas.clubmember_schemas import *
 from app.services.activity_log import log_activity
 from app.schemas.club_activity_schemas import *
 from app.models.activity import ClubActivityModel
+
+
+# CẤU HÌNH CHO VIỆC UPLOAD THƯ MỤC
+ALLOWED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".pdf", ".docx"]
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 Megabytes (tính theo byte)
+UPLOAD_DIR = "uploads/activities"
+
 
 # =============================== Tạo câu lạc bộ ===============================
 
@@ -458,7 +467,7 @@ def new_club_activity_sv(club_id: uuid.UUID, activity_data: ClubActivityCreate, 
             db=db,
             user_id=current_user.id,
             club_id=club_id,
-            action="REMOVE_MEMBER",
+            action="CREATE_ACTIVITY",
             description=f"User {current_user.email} đã thêm hoạt động '{activity_data.title}' vào CLB: {club_id}",
         )
 
@@ -512,7 +521,7 @@ def get_club_activities_sv(
         query = query.filter(ClubActivityModel.priority == priority)
 
     if assignee_id:
-        query = query.filter(ClubActivityModel.priority == assignee_id)
+        query = query.filter(ClubActivityModel.assignee_id == assignee_id)
 
     # đếm ra tổng số bảng ghi lấy ra được
 
@@ -594,22 +603,49 @@ def update_club_activity_sv(activity_id: uuid.UUID, update_data: ClubActivityUpd
         )
 
     # kiểm tra xem ng dùng có thuộc câu lạc bộ này không
-    is_member = db.query(ClubMemberModel).filter(
+    member_record = db.query(ClubMemberModel).filter(
         ClubMemberModel.club_id == current_activity.club_id,
-        ClubMemberModel.user_id == current_user.id
+        ClubMemberModel.user_id == current_user.id,
+        ClubMemberModel.is_deleted == False
     ).first()
 
-    if not is_member:
+    if not member_record:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không phải thành viên của câu lạc bộ này!",
         )
 
+    # xác định vai trò và phân quyền
+    is_owner = member_record.role_id == 1
+    is_assignee = current_activity.assignee_id == current_user.id
+
+    # Nếu không phải Owner và cũng không phải Assignee -> Không có quyền sửa
+    if not is_owner and not is_assignee:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ Chủ nhiệm hoặc Người được giao việc mới có quyền cập nhật hoạt động này!",
+        )
+
     # lấy dữ liệu người dùng gửi lên (loại trừ None)
     update_dict = update_data.model_dump(exclude_unset=True)
 
-    # nếu cập nhật assignee_id thì kiểm tra ng được giao có phải là tv clb hem
+    # NẾU LÀ ASSIGNEE -> CHỈ ĐC SỬA STATUS
+    if is_assignee and not is_owner:
+        restricted_fields = {
+            "title",
+            "description",
+            "due_date",
+            "assignee_id",
+            "priority",
+        }
 
+        if any(field in update_dict for field in restricted_fields):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Người được giao việc chỉ có quyền cập nhật trạng thái (status)!",
+            )
+
+    # nếu cập nhật assignee_id thì kiểm tra ng được giao có phải là tv clb hem
     if "assignee_id" in update_dict and update_dict["assignee_id"] is not None:
         target_assignee = (
             db.query(ClubMemberModel)
@@ -652,11 +688,11 @@ def update_club_activity_sv(activity_id: uuid.UUID, update_data: ClubActivityUpd
             (ActivityStatus.DONE, ActivityStatus.TODO),
         )
 
-    if (current_activity.status, update_data.status) in INVALID_STEPS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Không thể chuyển trạng thái từ {current_activity.status} sang {update_data.status}!"
-        )
+        if (current_activity.status, update_dict["status"]) in INVALID_STEPS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Không thể chuyển trạng thái từ {current_activity.status} sang {update_dict["status"].value}!"
+            )
 
     try:
         for key, value in update_dict.items():
@@ -696,21 +732,22 @@ def delete_club_activity_sv(
             detail="Không tìm thấy hoạt động để xóa!",
         )
 
-    # Kiểm tra quyền (User phải là thành viên trong CLB này)
-    member_record = (
+    # KIỂM TRA QUYỀN: Phải là OWNER của CLB chứa hoạt động này
+    owner_record = (
         db.query(ClubMemberModel)
         .filter(
             ClubMemberModel.club_id == activity.club_id,
             ClubMemberModel.user_id == current_user.id,
+            ClubMemberModel.role_id == 1,
             ClubMemberModel.is_deleted == False,
         )
         .first()
     )
 
-    if not member_record:
+    if not owner_record:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền thao tác trên hoạt động của câu lạc bộ này!",
+            detail="Chỉ Chủ nhiệm câu lạc bộ (Owner) mới có quyền xóa hoạt động!",
         )
 
     # tiến hành xóa
@@ -731,6 +768,157 @@ def delete_club_activity_sv(
         db.commit()
         return True
 
+    except Exception as e:
+        db.rollback()
+        raise e
+# =============================== END REGION ===============================
+
+
+# =============================== NÂNG CAO THÊM COMMENT CHO HOẠT ĐỘNG ===============================
+
+def add_comment_sv(activity_id: uuid.UUID, content: str, current_user: UserModel, db: Session):
+
+    activity = (
+        db.query(ClubActivityModel)
+        .filter(ClubActivityModel.id == activity_id)
+        .first()
+    )
+
+    if not activity:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy hoạt động!")
+
+    # Kiểm tra có phải thành viên CLB không
+
+    member = (
+        db.query(ClubMemberModel)
+        .filter(ClubMemberModel.club_id == activity.club_id,
+                ClubMemberModel.user_id == current_user.id,
+                ClubMemberModel.is_deleted == False)
+    ).first()
+
+    if not member:
+        raise HTTPException(
+            status_code=403, detail="Bạn không phải thành viên CLB này!"
+        )
+
+    # tạo commemt
+    new_comment = {
+        "user_id": str(current_user.id),
+        "user_email": current_user.email,
+        "content": content,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    # thêm vào list và lưu lại
+    current_comments = list(activity.comments or [])
+    current_comments.append(new_comment)
+    activity.comments = current_comments
+
+    try:
+        db.commit()
+        db.refresh(activity)
+        return new_comment
+    except Exception as e:
+        db.rollback()
+        raise e
+
+# =============================== END REGION ===============================
+
+# =============================== NÂNG CAO UPLOAD FILE ĐÍNH KÈM  ===============================
+
+
+def upload_attachment_sv(
+    activity_id: uuid.UUID,
+    file: UploadFile,
+    current_user: UserModel,
+    db: Session,
+):
+
+    # lấy ra hoạt động và kiểm tra quyền thành viên clb
+    activity = (
+        db.query(ClubActivityModel)
+        .filter(ClubActivityModel.id == activity_id)
+        .first()
+    )
+    if not activity:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hoạt động không tồn tại!",
+        )
+
+    member = (
+        db.query(ClubMemberModel)
+        .filter(
+            ClubMemberModel.club_id == activity.club_id,
+            ClubMemberModel.user_id == current_user.id,
+            ClubMemberModel.is_deleted == False,
+        )
+        .first()
+    )
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không phải là thành viên của câu lạc bộ này!",
+        )
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tên file không hợp lệ!",
+        )
+
+    # kiểm tra đuôi file và kích thước file
+    # lấy đuôi file
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loại file không hợp lệ! Chỉ chấp nhận: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    # đọc kích thước file
+    # đưa con trỏ đến cuối file để đọc kích thước
+    file.file.seek(0, os.SEEK_END)
+    file_size = file.file.tell()
+    file.file.seek(0)  # đưa về đầu file để lưu
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kích thước file quá lớn (tối đa 5MB)!",
+        )
+
+    # lưu file vào db và tạo thư mục trên máy
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    # tạo tên file kèm uuid
+    saved_filename = f"{uuid.uuid4()}_{file.filename}"
+
+    # gộp thành đường dẫn hoàn chỉnh để lưu
+    file_save_path = os.path.join(UPLOAD_DIR, saved_filename)
+
+    # tiến hành lưu file
+    with open(file_save_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # lưu thông tin vào db
+    new_attachment = {
+        "id": str(uuid.uuid4()),
+        "file_name": file.filename,
+        "file_path": file_save_path.replace("\\", "/"),  # Chuẩn hóa đường dẫn
+        "file_size": file_size,
+        "uploader_email": current_user.email,
+        "uploaded_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    current_attachments = list(activity.attachments or [])
+    current_attachments.append(new_attachment)
+    activity.attachments = current_attachments
+
+    try:
+        db.commit()
+        db.refresh(activity)
+        return new_attachment
     except Exception as e:
         db.rollback()
         raise e

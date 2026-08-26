@@ -54,17 +54,18 @@ def login_account_sv(email: str, password: str, db: Session):
 
     user = db.query(UserModel).filter(UserModel.email == email).first()
 
-    if not user:
+    #  Nếu không có user HOẶC sai mật khẩu
+    if not user or not verify_password(password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Email không đúng"
+            status_code=status.HTTP_400_BAD_REQUEST,  
+            detail="Email hoặc mật khẩu không chính xác!",
         )
 
-    # có thì kiểm tra mật khẩu
-    if not verify_password(password, user.password_hash):
+    # Kiểm tra xem tài khoản có bị khóa không
+    if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mật khẩu không đúng"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn đã bị khóa!",
         )
     # ổn thì tạo payload
     payload = {
@@ -139,6 +140,8 @@ def refresh_access_token_sv(refresh_token: str, db: Session) -> dict:
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
 
+    except HTTPException:
+        raise
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

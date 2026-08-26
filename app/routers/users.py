@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.schemas.user import *
+from app.schemas.response_schemas import BaseResponse
 from app.services.user import get_users_sv
 from app.utils.utils import create_response
 from app.dependencies.dependencies import get_current_user
@@ -16,7 +17,13 @@ user_router = APIRouter(
 
 
 # =============================== LẤY RA THÔNG TIN NGƯỜI DÙNG ===============================
-@user_router.get("/me", status_code=status.HTTP_200_OK)
+@user_router.get(
+    "/me",
+    response_model=BaseResponse[UserResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Xem thông tin cá nhân",
+    description="Lấy thông tin chi tiết của tài khoản đang đăng nhập.",
+)
 def get_my_profile(req: Request, user=Depends(get_current_user)):
 
     try:
@@ -26,7 +33,8 @@ def get_my_profile(req: Request, user=Depends(get_current_user)):
                                message="Xem thông tin cá nhân thành công",
                                request=req,
                                data=safety_user)
-
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -36,7 +44,14 @@ def get_my_profile(req: Request, user=Depends(get_current_user)):
 
 
 # =============================== LỌC RA DANH SÁCH NGƯỜI DÙNG CHO ADMIN ===============================
-@user_router.get("/", status_code=status.HTTP_200_OK, dependencies=[Depends(ADMIN_AUTH)])
+@user_router.get(
+    "/",
+    response_model=BaseResponse[list[UserResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Lấy danh sách người dùng",
+    description="Chỉ Admin hệ thống mới có quyền xem danh sách và lọc người dùng.",
+    dependencies=[Depends(ADMIN_AUTH)],
+)
 def get_users(req: Request,
               full_name: str | None = None,
               email: str | None = None,
@@ -54,6 +69,8 @@ def get_users(req: Request,
                                message="Lấy dữ liệu người dùng thành công",
                                request=req,
                                data=users_json)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

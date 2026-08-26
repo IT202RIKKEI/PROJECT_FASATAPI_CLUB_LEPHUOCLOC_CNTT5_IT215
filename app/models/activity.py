@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import String, Integer, ForeignKey, Boolean, DateTime, Text, Uuid, Enum
+from sqlalchemy import String, Integer, ForeignKey, Boolean, DateTime, Text, Uuid, Enum, JSON
 from sqlalchemy.orm import mapped_column, Mapped, joinedload, relationship
 from datetime import datetime, timezone, timedelta
 from app.db.database import Base
@@ -53,11 +53,16 @@ class ClubActivityModel(Base):
 
     # Thời gian
     due_date: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime, nullable=True
     )
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
+
+    # nâng cao
+    comments = mapped_column(JSON, default=list)
+    attachments = mapped_column(JSON, default=list)
 
     # Quan hệ
     club = relationship(
