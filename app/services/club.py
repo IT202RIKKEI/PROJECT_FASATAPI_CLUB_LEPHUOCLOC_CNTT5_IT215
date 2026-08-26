@@ -585,7 +585,6 @@ def get_activity_detail_sv(id: uuid.UUID, current_user: UserModel, db: Session):
 
 # =============================== END REGION ===============================
 
-
 # =============================== CẬP NHẬT HOẠT ĐỘNG CÂU LẠC BỘ (FULL_ACCESS) ===============================
 def update_club_activity_sv(activity_id: uuid.UUID, update_data: ClubActivityUpdate,
                             current_user: UserModel,
